@@ -2,13 +2,13 @@
 const express = require("express");
 const http = require('http');
 const { Server } = require("socket.io");
-const {newReviewCheck} = require("./validation");
+const {newReviewCheck, updateReviewCheck} = require("./validation");
 const app = express();
 const history = require('connect-history-api-fallback');
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: '*',
+        origin: 'http://localhost:8080',
         methods: ['GET', 'POST', 'PUT'],
         credentials: true
     },
@@ -76,8 +76,7 @@ io.on('connection', socket => {
         Users.findOne({ where: { id: rev.user.userId } })
             .then(user => {
                 if(user.role == "user"){
-                    console.log(rev);
-                    const check = newReviewCheck.validate(rev);
+                    const check = updateReviewCheck.validate(rev);
                     if(check.error){
                         res.status(422).json({ msg: check.error.message });
                     }
@@ -86,7 +85,6 @@ io.on('connection', socket => {
                             .then(album => {
                                 Reviews.create({ body: rev.body, rating: rev.rating, albumId: rev.albumId, userId: rev.user.userId})
                                         .then( rows => {
-                                            console.log(rows);
                                             Reviews.findOne({where: {id: rows.id}})
                                             .then(rev => io.emit('review', JSON.stringify(rev)))
                                         })
@@ -96,14 +94,101 @@ io.on('connection', socket => {
                         }
                     }
                     else {
-                        res.status(403).json({ msg: "Only users can review albums."}); 
+                        socket.emit('error', 'Error! Only users can post reviews.');
                     }
                 })
-                .catch(err => res.status(500).json(err));
+                
+    });
+
+    socket.on('reviewUpdate', rev => {
+
+        Users.findOne({ where: { id: rev.user.userId } })
+            .then(user => {
+                if(user.role == "user"){
+                    const check = updateReviewCheck.validate(rev);
+                    if(check.error){
+                        res.status(422).json({ msg: check.error.message });
+                    }
+                    else {
+                        Albums.findOne({where: {id: rev.albumId}})
+                            .then(album => {
+                                Reviews.findOne({where: {id: rev.id}})
+                                        .then( foundReview => {
+                                            
+                                            foundReview.body = rev.body;
+                                            foundReview.rating = rev.rating;
+                                            foundReview.save()
+                                                .catch( err => console.log(err));
+                                            io.emit('reviewUpdate', JSON.stringify(foundReview))
+                                        })
+                                        .catch( err => res.status(500).json(err) );
+                            })
+                            .catch(err => res.status( ).json(err))
+                        }
+                    }
+                    else {
+                        socket.emit('error', 'Error! Only users can update reviews.');
+                    }
+                })
+    });
+
+    socket.on('reviewDelete', rev =>{
+        Users.findOne({ where: { id: rev.user.userId }})
+            .then(user => {
+                if(user.role == "moderator" || user.role == "user" || user.role == "admin"){
+                    Reviews.findOne({where: {id: rev.id}})
+                        .then(review => {
+                            ret = review;
+                            review.destroy()
+                                .catch( err => res.status(500).json(err));
+                            io.emit('reviewDelete', JSON.stringify(ret)) 
+                        })
+                        .catch(err => res.status(500).json(err))
+                }
+                else {
+                    socket.emit('error', 'Error! Insufficient privileges.');
+                }
+            })
     });
 
     socket.on('error', err => socket.emit('error', err.message) );
 });
+
+// io.on('connection', socket => {
+//     socket.use(authSocket);
+ 
+//     socket.on('reviewUpdate', rev => {
+
+//         Users.findOne({ where: { id: rev.user.userId } })
+//             .then(user => {
+//                 if(user.role == "user"){
+//                     const check = newReviewCheck.validate(rev);
+//                     if(check.error){
+//                         res.status(422).json({ msg: check.error.message });
+//                     }
+//                     else {
+//                         Albums.findOne({where: {id: rev.albumId}})
+//                             .then(album => {
+//                                 Reviews.findOne({where: {id: rev.id}})
+//                                         .then( foundReview => {
+//                                             foundReview.body = rev.body;
+//                                             foundReview.rating = rev.rating;
+//                                             io.emit('reviewUpdate', JSON.stringify(foundReview))
+//                                         })
+//                                         .catch( err => res.status(500).json(err) );
+//                             })
+//                             .catch(err => res.status( ).json(err))
+//                         }
+//                     }
+//                     else {
+//                         res.status(403).json({ msg: "Only users can review albums."}); 
+//                     }
+//                 })
+//                 .catch(err => res.status(500).json(err));
+//     });
+
+//     socket.on('error', err => socket.emit('error', err.message) );
+// });
 
 // app.get('/register', (req, res) => {
 //     res.sendFile('register.html', { root: './static' });

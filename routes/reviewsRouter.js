@@ -58,6 +58,7 @@ route.get("/review/:id", (req, res) => {
 });
 
 route.post("/reviews", authToken, (req, res) => {
+
     
     Users.findOne({ where: { id: req.user.userId } })
         .then(user => {

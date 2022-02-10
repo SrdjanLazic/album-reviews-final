@@ -9,7 +9,7 @@ const artists = require("./routes/artistsRouter");
 const reviews = require("./routes/reviewsRouter");
 
 const corsOptions = {
-    origin: "*",
+    origin: "http://localhost:8080",
     optionsSuccessStatus: 200
 }
 app.use(cors(corsOptions));

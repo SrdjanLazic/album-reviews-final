@@ -22,12 +22,12 @@ require("dotenv").config();
 
 // Cors options:
 const corsOptions = {
-    origin: "*",
+    origin: "http://localhost:8080",
     optionsSuccessStatus: 200
 }
 app.use(cors(corsOptions));
 
-app.post("/api_register", (req, res) => {
+app.post("/register", (req, res) => {
 
     const check = registerCheck.validate(req.body);
 
@@ -55,7 +55,7 @@ app.post("/api_register", (req, res) => {
     }
 })
 
-app.post("/api_login", (req, res) => {
+app.post("/login", (req, res) => {
 
     const check = loginCheck.validate(req.body);
 
